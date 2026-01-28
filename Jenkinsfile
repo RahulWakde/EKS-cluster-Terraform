@@ -16,34 +16,53 @@ pipeline {
 
         stage('Terraform Init') {
             steps {
-                sh '''
-                terraform --version
-                terraform init -upgrade
-                '''
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'aws-creds']
+                ]) {
+                    sh '''
+                    terraform init -upgrade
+                    '''
+                }
             }
         }
 
         stage('Terraform Validate') {
             steps {
-                sh '''
-                terraform validate
-                '''
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'aws-creds']
+                ]) {
+                    sh '''
+                    terraform validate
+                    '''
+                }
             }
         }
 
         stage('Terraform Plan') {
             steps {
-                sh '''
-                terraform plan
-                '''
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'aws-creds']
+                ]) {
+                    sh '''
+                    terraform plan
+                    '''
+                }
             }
         }
 
         stage('Terraform Apply') {
             steps {
-                sh '''
-                terraform apply -auto-approve
-                '''
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'aws-creds']
+                ]) {
+                    sh '''
+                    terraform apply -auto-approve
+                    '''
+                }
             }
         }
 
@@ -74,10 +93,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ EKS cluster provisioned and verified successfully"
+            echo "✅ EKS cluster provisioned successfully"
         }
         failure {
-            echo "❌ Pipeline failed. Check logs above."
+            echo "❌ Pipeline failed"
         }
     }
 }
