@@ -17,15 +17,18 @@ pipeline {
     }
 
     stage('Terraform Init') {
-      steps {
-        withCredentials([[
-          $class: 'AmazonWebServicesCredentialsBinding',
-          credentialsId: 'aws-creds'
-        ]]) {
-          sh 'terraform init'
-        }
-      }
+  steps {
+    withCredentials([[
+      $class: 'AmazonWebServicesCredentialsBinding',
+      credentialsId: 'aws-creds'
+    ]]) {
+      sh '''
+      rm -rf .terraform .terraform.lock.hcl
+      terraform init -upgrade
+      '''
     }
+  }
+}
 
     stage('Terraform Validate') {
       steps {
@@ -88,10 +91,10 @@ pipeline {
 
   post {
     success {
-      echo 'EKS Cluster and NGINX deployed successfully 🚀'
+      echo 'EKS Cluster and NGINX deployed successfully.'
     }
     failure {
-      echo 'Pipeline failed ❌'
+      echo 'Pipeline failed.'
     }
   }
 }
