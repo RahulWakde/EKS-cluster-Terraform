@@ -65,29 +65,33 @@ pipeline {
     }
 
     stage('Configure kubectl for EKS') {
-      steps {
-        withCredentials([[
-          $class: 'AmazonWebServicesCredentialsBinding',
-          credentialsId: 'aws-creds'
-        ]]) {
-          sh """
-          aws eks update-kubeconfig \
-            --region ${AWS_DEFAULT_REGION} \
-            --name ${CLUSTER_NAME}
-          """
-        }
-      }
-    }
-
-    stage('Verify EKS & NGINX') {
-      steps {
-        sh '''
-        kubectl get nodes
-        kubectl get pods -A
-        '''
-      }
+  steps {
+    withCredentials([[
+      $class: 'AmazonWebServicesCredentialsBinding',
+      credentialsId: 'aws-creds'
+    ]]) {
+      sh """
+      aws eks update-kubeconfig \
+        --region ${AWS_DEFAULT_REGION} \
+        --name ${CLUSTER_NAME}
+      """
     }
   }
+}
+
+stage('Verify EKS & NGINX') {
+  steps {
+    withCredentials([[
+      $class: 'AmazonWebServicesCredentialsBinding',
+      credentialsId: 'aws-creds'
+    ]]) {
+      sh '''
+      kubectl get nodes
+      kubectl get pods -A
+      '''
+    }
+  }
+}
 
   post {
     success {
