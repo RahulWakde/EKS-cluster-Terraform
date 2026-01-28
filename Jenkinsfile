@@ -3,40 +3,27 @@ pipeline {
 
     environment {
         AWS_REGION = "ap-south-1"
-        CLUSTER_NAME = "my-eks-cluster"
     }
 
     stages {
 
         stage('Checkout') {
             steps {
-                checkout scm
+                git credentialsId: 'github-creds',
+                    url: 'https://github.com/RahulWakde/EKS-cluster-Terraform.git',
+                    branch: 'main'
             }
         }
 
         stage('Terraform Init') {
             steps {
-                withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding',
-                     credentialsId: 'aws-creds']
-                ]) {
-                    sh '''
-                    terraform init -upgrade
-                    '''
-                }
+                sh 'terraform init -upgrade'
             }
         }
 
         stage('Terraform Validate') {
             steps {
-                withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding',
-                     credentialsId: 'aws-creds']
-                ]) {
-                    sh '''
-                    terraform validate
-                    '''
-                }
+                sh 'terraform validate'
             }
         }
 
@@ -46,9 +33,7 @@ pipeline {
                     [$class: 'AmazonWebServicesCredentialsBinding',
                      credentialsId: 'aws-creds']
                 ]) {
-                    sh '''
-                    terraform plan
-                    '''
+                    sh 'terraform plan'
                 }
             }
         }
@@ -59,9 +44,7 @@ pipeline {
                     [$class: 'AmazonWebServicesCredentialsBinding',
                      credentialsId: 'aws-creds']
                 ]) {
-                    sh '''
-                    terraform apply -auto-approve
-                    '''
+                    sh 'terraform apply -auto-approve'
                 }
             }
         }
@@ -73,9 +56,13 @@ pipeline {
                      credentialsId: 'aws-creds']
                 ]) {
                     sh '''
+                    CLUSTER_NAME=$(terraform output -raw cluster_name)
+
+                    echo "Updating kubeconfig for $CLUSTER_NAME"
+
                     aws eks update-kubeconfig \
                       --region ${AWS_REGION} \
-                      --name ${CLUSTER_NAME}
+                      --name $CLUSTER_NAME
                     '''
                 }
             }
@@ -83,20 +70,14 @@ pipeline {
 
         stage('Verify Cluster') {
             steps {
-                sh '''
-                kubectl get nodes
-                kubectl get pods -A
-                '''
+                sh 'kubectl get nodes'
             }
         }
-    }
 
-    post {
-        success {
-            echo "✅ EKS cluster provisioned successfully"
-        }
-        failure {
-            echo "❌ Pipeline failed"
+        stage('Deploy NGINX') {
+            steps {
+                sh 'kubectl apply -f modules/nginx/'
+            }
         }
     }
 }
