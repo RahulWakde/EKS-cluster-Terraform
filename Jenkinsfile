@@ -11,7 +11,7 @@ pipeline {
     stage('Checkout Source Code') {
       steps {
         git credentialsId: 'github-creds',
-            url: 'https://github.com/<your-username>/EKS-cluster-Terraform.git',
+            url: 'https://github.com/RahulWakde/EKS-cluster-Terraform.git',
             branch: 'main'
       }
     }
