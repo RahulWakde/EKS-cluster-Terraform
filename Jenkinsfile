@@ -1,105 +1,83 @@
 pipeline {
-  agent any
+    agent any
 
-  environment {
-    AWS_DEFAULT_REGION = "ap-south-1"
-    CLUSTER_NAME       = "demo-eks"
-  }
-
-  stages {
-
-    stage('Checkout Source Code') {
-      steps {
-        git credentialsId: 'github-creds',
-            url: 'https://github.com/RahulWakde/EKS-cluster-Terraform.git',
-            branch: 'main'
-      }
+    environment {
+        AWS_REGION = "ap-south-1"
+        CLUSTER_NAME = "my-eks-cluster"
     }
 
-    stage('Terraform Init') {
-  steps {
-    withCredentials([[
-      $class: 'AmazonWebServicesCredentialsBinding',
-      credentialsId: 'aws-creds'
-    ]]) {
-      sh '''
-      rm -rf .terraform .terraform.lock.hcl
-      terraform init -upgrade
-      '''
-    }
-  }
-}
+    stages {
 
-    stage('Terraform Validate') {
-      steps {
-        sh 'terraform validate'
-      }
-    }
-
-    stage('Terraform Plan') {
-      steps {
-        withCredentials([[
-          $class: 'AmazonWebServicesCredentialsBinding',
-          credentialsId: 'aws-creds'
-        ]]) {
-          sh 'terraform plan'
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
         }
-      }
-    }
 
-    stage('Approval Before Apply') {
-      steps {
-        input message: 'Approve Terraform Apply?'
-      }
-    }
-
-    stage('Terraform Apply') {
-      steps {
-        withCredentials([[
-          $class: 'AmazonWebServicesCredentialsBinding',
-          credentialsId: 'aws-creds'
-        ]]) {
-          sh 'terraform apply -auto-approve'
+        stage('Terraform Init') {
+            steps {
+                sh '''
+                terraform --version
+                terraform init -upgrade
+                '''
+            }
         }
-      }
+
+        stage('Terraform Validate') {
+            steps {
+                sh '''
+                terraform validate
+                '''
+            }
+        }
+
+        stage('Terraform Plan') {
+            steps {
+                sh '''
+                terraform plan
+                '''
+            }
+        }
+
+        stage('Terraform Apply') {
+            steps {
+                sh '''
+                terraform apply -auto-approve
+                '''
+            }
+        }
+
+        stage('Update kubeconfig') {
+            steps {
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'aws-creds']
+                ]) {
+                    sh '''
+                    aws eks update-kubeconfig \
+                      --region ${AWS_REGION} \
+                      --name ${CLUSTER_NAME}
+                    '''
+                }
+            }
+        }
+
+        stage('Verify Cluster') {
+            steps {
+                sh '''
+                kubectl get nodes
+                kubectl get pods -A
+                '''
+            }
+        }
     }
 
-    stage('Configure kubectl for EKS') {
-  steps {
-    withCredentials([[
-      $class: 'AmazonWebServicesCredentialsBinding',
-      credentialsId: 'aws-creds'
-    ]]) {
-      sh """
-      aws eks update-kubeconfig \
-        --region ${AWS_DEFAULT_REGION} \
-        --name ${CLUSTER_NAME}
-      """
+    post {
+        success {
+            echo "✅ EKS cluster provisioned and verified successfully"
+        }
+        failure {
+            echo "❌ Pipeline failed. Check logs above."
+        }
     }
-  }
 }
-
-stage('Verify EKS & NGINX') {
-  steps {
-    withCredentials([[
-      $class: 'AmazonWebServicesCredentialsBinding',
-      credentialsId: 'aws-creds'
-    ]]) {
-      sh '''
-      kubectl get nodes
-      kubectl get pods -A
-      '''
-    }
-  }
-}
-
-  post {
-    success {
-      echo 'EKS Cluster and NGINX deployed successfully.'
-    }
-    failure {
-      echo 'Pipeline failed.'
-    }
-  }
-}
-
